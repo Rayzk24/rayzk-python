@@ -9,7 +9,13 @@
 5. Associer `python.rayzk.fr` dans Pages, puis valider le DNS.
 6. Compléter les URLs Supabase Auth, tester le site final.
 
-## 1. Préparation locale
+## 1. État actuel et installation locale facultative
+
+Le dépôt public [Rayzk24/rayzk-python](https://github.com/Rayzk24/rayzk-python) et sa branche `main` existent déjà. Le commit initial a passé lint, typecheck, tests unitaires, tests navigateur et build. Tu n'as pas besoin de refaire `npm ci` sur ton PC pour configurer Cloudflare Pages : Pages installe lui-même les dépendances depuis `package-lock.json`.
+
+Si `npm ci` affiche `EPERM ... rolldown-binding.win32-x64-msvc.node` sous Windows, ferme le terminal `npm run dev` ou `vite` utilisant le projet, puis relance `npm ci` dans un nouveau terminal. Le fichier natif était verrouillé par le processus en cours. Cette erreur ne touche pas les sources Git ni la base Supabase. Après fermeture du serveur local, `npm ci` a été relancé avec succès sur ce projet.
+
+Pour une vérification locale *facultative*, dans PowerShell :
 
 Dans PowerShell :
 
@@ -25,16 +31,7 @@ Node **22 LTS** (minimum 22.12), `.nvmrc` = `22`. `npm ci` installe les versions
 
 ## 2. GitHub
 
-Le dépôt cible est `https://github.com/Rayzk24/rayzk-python`, public, indépendant du dashboard. Dans GitHub, vérifie que `main` contient les sources, `package-lock.json`, `public/_headers`, cette documentation et la migration, mais aucun `.env.local`.
-
-Si le dépôt n’a pas encore été créé, utilise ton propre navigateur via GitHub CLI (aucun token à communiquer) :
-
-```powershell
-gh auth login --web
-gh repo create rayzk-python --public --source . --remote origin --push
-```
-
-Cette commande suppose que le commit initial et la branche `main` existent déjà. Si `origin` existe, utilise simplement `git push -u origin main`.
+Le dépôt [Rayzk24/rayzk-python](https://github.com/Rayzk24/rayzk-python) est déjà public et indépendant du dashboard. Dans GitHub, vérifie que `main` contient `package-lock.json`, `public/_headers`, cette documentation et la migration, mais aucun `.env.local`. Tu n'as pas de dépôt GitHub à créer et aucun push à faire pour le premier déploiement.
 
 ## 3. Créer le projet Pages
 
