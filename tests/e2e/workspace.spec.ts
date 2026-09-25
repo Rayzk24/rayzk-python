@@ -201,3 +201,41 @@ test("empty and repeated input, multiline REPL, keyboard execution and stdout fl
     timeout: 60000,
   });
 });
+
+test("visual polish: title, login controls and input answer in both themes", async ({ page }) => {
+  await page.goto("/");
+  await expect(page).toHaveTitle("Rayzk Python");
+  await expect(page.getByRole("textbox", { name: "Email" })).toBeVisible();
+  const checkbox = page.getByRole("checkbox", { name: "Rester connecté sur cet appareil" });
+  await checkbox.check();
+  expect(await checkbox.evaluate((node) => getComputedStyle(node).appearance)).toBe("none");
+  await page.screenshot({ path: "test-results/login-dark-desktop.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: "test-results/login-dark-mobile.png" });
+  await login(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const out = page.getByTestId("console-output");
+  await run(page, 'print("hello")');
+  await expect(out).toContainText("hello");
+  await run(page, 'age = input("salut")\nprint(age)');
+  await page.getByLabel("Réponse Python").fill("J'ai 10 ans");
+  await page.getByLabel("Réponse Python").press("Enter");
+  const answer = page.locator(".output-input-answer");
+  await expect(answer).toContainText("J'ai 10 ans");
+  expect(await answer.evaluate((node) => getComputedStyle(node).marginLeft)).not.toBe("0px");
+  await page.getByLabel("Expression Python").fill("12 ** 2");
+  await page.getByLabel("Expression Python").press("Enter");
+  await expect(out).toContainText("144");
+  await page.screenshot({ path: "test-results/console-dark.png" });
+  await page.getByLabel("Passer au thème clair").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.screenshot({ path: "test-results/console-light.png" });
+  await page.getByLabel("Compte", { exact: true }).click();
+  await page.getByRole("button", { name: "Déconnexion", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Connexion", exact: true })).toBeVisible();
+  await page.screenshot({ path: "test-results/login-light-desktop.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: "test-results/login-light-mobile.png" });
+});

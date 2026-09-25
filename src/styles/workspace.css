@@ -287,6 +287,9 @@ kbd {
 .output-command {
   color: var(--accent);
 }
+.output-input-answer {
+  margin-left: 1ch;
+}
 .output-info {
   color: var(--subtle);
   font-size: 11px;

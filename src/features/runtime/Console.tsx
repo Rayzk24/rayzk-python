@@ -94,7 +94,16 @@ export function Console({
           aria-label="Sortie Python"
         >
           {chunks.map((chunk, i) => (
-            <span key={i} className={`output-${chunk.stream}`}>
+            <span
+              key={i}
+              className={`output-${chunk.stream}${
+                chunk.stream === "command" &&
+                chunks[i - 1]?.stream === "stdout" &&
+                !chunks[i - 1]?.text.endsWith("\n")
+                  ? " output-input-answer"
+                  : ""
+              }`}
+            >
               {(prompt && i === chunks.length - 1
                 ? chunk.text.slice(0, -prompt.length)
                 : chunk.text
