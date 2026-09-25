@@ -1,0 +1,203 @@
+import { readFile } from "node:fs/promises";
+import { test, expect, login, code, run } from "./fixture";
+test("real Pyodide: stdout, Unicode input, REPL, traceback, reset and infinite-loop Stop", async ({
+  page,
+}) => {
+  await login(page);
+  expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
+  const out = page.getByTestId("console-output");
+  await run(page, 'print("hello")');
+  await expect(out).toContainText("hello");
+  await run(page, 'name = input("Quel est ton nom ?")\nprint("Bonjour", name)');
+  await expect(
+    page.getByText("Quel est ton nom ?", { exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("Réponse Python").fill("Élodie 🐍");
+  await page.getByLabel("Réponse Python").press("Enter");
+  await expect(out).toContainText("Bonjour Élodie 🐍");
+  await run(page, "for i in range(5):\n    print(i)");
+  await expect(out).toContainText("0\n1\n2\n3\n4");
+  await page.getByLabel("Expression Python").fill("12 ** 2");
+  await page.getByLabel("Expression Python").press("Enter");
+  await expect(out).toContainText("144");
+  await page.getByLabel("Expression Python").fill('len("Rayzk")');
+  await page.getByLabel("Expression Python").press("Enter");
+  await expect(out).toContainText("\n5\n");
+  await page.getByLabel("Expression Python").fill("name");
+  await page.getByLabel("Expression Python").press("Enter");
+  await expect(out).toContainText("'Élodie 🐍'");
+  await run(page, 'print("avant")\n1 / 0');
+  await expect(out).toContainText("ZeroDivisionError");
+  await expect(page.locator(".cm-error-line")).toHaveCount(1);
+  await page.getByRole("button", { name: 'File "main.py", line 2' }).click();
+  await run(page, "while True:\n    pass");
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Exécuter" })).toBeEnabled({
+    timeout: 60000,
+  });
+  await run(page, 'print("après stop")');
+  await expect(out).toContainText("après stop");
+  await page.getByRole("button", { name: "Reset Python", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Exécuter" })).toBeEnabled({
+    timeout: 60000,
+  });
+  await page.getByLabel("Expression Python").fill("name");
+  await page.getByLabel("Expression Python").press("Enter");
+  await expect(out).toContainText("NameError");
+});
+test("autosave, offline recovery, library, import confirmation and export", async ({
+  page,
+  backend,
+}) => {
+  await login(page);
+  await code(page, "# sauvegarde\nprint(42)");
+  await expect(page.getByRole("status")).toHaveText("Sauvegardé");
+  expect(
+    [...backend.values()].find((d) => d.kind === "draft")?.content,
+  ).toContain("42");
+  await page.reload();
+  await expect(page.getByLabel("Code Python")).toContainText("print(42)");
+  await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
+  await page.getByLabel("Nom", { exact: true }).fill("Boucles");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Enregistrer", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toHaveText("Sauvegardé");
+  await page.getByLabel("Ouvrir la bibliothèque").click();
+  await page.getByLabel("Renommer Boucles").click();
+  await page.getByLabel("Nom", { exact: true }).fill("Tri insertion");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Enregistrer" })
+    .click();
+  await expect(page.getByRole("status")).toHaveText("Sauvegardé");
+  await page
+    .getByRole("button", { name: "Brouillon Ton espace de travail principal" })
+    .click();
+  await page
+    .locator("input[type=file]")
+    .setInputFiles({
+      name: "test.py",
+      mimeType: "text/x-python",
+      buffer: Buffer.from('print("importé")'),
+    });
+  await expect(page.getByRole("dialog")).toContainText(
+    "Remplacer le brouillon",
+  );
+  await page.getByRole("button", { name: "Remplacer", exact: true }).click();
+  await expect(page.getByLabel("Code Python")).toContainText("importé");
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByLabel("Télécharger .py").click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("main.py");
+  expect(await readFile((await download.path())!, "utf8")).toBe(
+    'print("importé")',
+  );
+  await expect(page.getByRole("status")).toHaveText("Sauvegardé");
+  await page.context().setOffline(true);
+  await code(page, 'print("hors ligne")');
+  await expect(page.getByRole("status")).toContainText("sauvegardé localement");
+  await page.context().setOffline(false);
+  await expect(page.getByRole("status")).toHaveText("Sauvegardé");
+  expect(
+    [...backend.values()].find((d) => d.kind === "draft")?.content,
+  ).toContain("hors ligne");
+  await page.getByLabel("Supprimer Tri insertion").click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Supprimer", exact: true })
+    .click();
+  await expect(page.getByLabel("Supprimer Tri insertion")).toHaveCount(0);
+});
+test("auth storage choices, logout, themes and responsive widths", async ({
+  page,
+}) => {
+  await login(page, false);
+  expect(
+    await page.evaluate(() => localStorage.getItem("rayzk-python.auth")),
+  ).toBeNull();
+  expect(
+    await page.evaluate(() =>
+      Boolean(sessionStorage.getItem("rayzk-python.auth")),
+    ),
+  ).toBe(true);
+  await page.getByLabel("Passer au thème clair").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.getByLabel("Code Python")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Exécuter" })).toBeEnabled({
+    timeout: 60000,
+  });
+  await page.getByLabel("Passer au thème sombre").click();
+  for (const width of [375, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    if (width < 700) {
+      await page.getByRole("button", { name: "Console", exact: true }).click();
+      await expect(page.getByLabel("Console Python")).toBeVisible();
+      await page.getByRole("button", { name: "Éditeur", exact: true }).click();
+    }
+    await page.screenshot({ path: `test-results/workspace-dark-${width}.png` });
+  }
+  await page.getByLabel("Passer au thème clair").click();
+  await page.screenshot({ path: "test-results/workspace-light-1440.png" });
+  await page.getByLabel("Compte", { exact: true }).click();
+  await page.getByRole("button", { name: "Déconnexion", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Connexion", exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(() => sessionStorage.getItem("rayzk-python.auth")),
+  ).toBeNull();
+  await login(page, true);
+  expect(
+    await page.evaluate(() =>
+      Boolean(localStorage.getItem("rayzk-python.auth")),
+    ),
+  ).toBe(true);
+  expect(
+    await page.evaluate(() => sessionStorage.getItem("rayzk-python.auth")),
+  ).toBeNull();
+});
+test("empty and repeated input, multiline REPL, keyboard execution and stdout flood", async ({
+  page,
+}) => {
+  await login(page);
+  const out = page.getByTestId("console-output");
+  await run(
+    page,
+    'a = input("Premier : ")\nb = input("Second : ")\nprint(repr(a), repr(b))',
+  );
+  await page.getByLabel("Réponse Python").press("Enter");
+  await expect(page.getByText("Second :", { exact: true })).toBeVisible();
+  await page.getByLabel("Réponse Python").fill("fin");
+  await page.getByLabel("Réponse Python").press("Enter");
+  await expect(out).toContainText("'' 'fin'");
+  for (const command of [
+    "def double(x):",
+    "    return x * 2",
+    "",
+    "double(21)",
+  ]) {
+    await expect(page.getByLabel("Expression Python")).toBeEnabled();
+    await page.getByLabel("Expression Python").fill(command);
+    await page.getByLabel("Expression Python").press("Enter");
+  }
+  await expect(out).toContainText("42");
+  await expect(page.getByRole("button", { name: "Exécuter" })).toBeEnabled();
+  await code(page, 'print("raccourci")');
+  await page.getByLabel("Code Python").press("ControlOrMeta+Enter");
+  await expect(out).toContainText("raccourci");
+  await run(page, 'while True:\n    print("sortie")');
+  await expect(out).toContainText("sortie");
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Exécuter" })).toBeEnabled({
+    timeout: 60000,
+  });
+});

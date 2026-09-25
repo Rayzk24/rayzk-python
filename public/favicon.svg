@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Rayzk Python">
+  <rect width="64" height="64" rx="14" ry="14" fill="#07090D"/>
+  <path fill="#F5F5F7" fill-rule="evenodd" d="M12 14h15c8.5 0 13.5 4.4 13.5 12 0 5.2-2.8 8.9-7.4 10.7L41.5 50h-9.1L25 39h-5v11h-8V14Zm8 7v11h6.6c3.8 0 5.8-1.8 5.8-5.5S30.4 21 26.6 21H20Z"/>
+  <circle cx="48" cy="45" r="4.8" fill="#0A84FF"/>
+</svg>

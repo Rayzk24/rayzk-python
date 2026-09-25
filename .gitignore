@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env*
+!.env.example
+public/pyodide/
+test-results/
+playwright-report/
+coverage/
+work/
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.wrangler/
