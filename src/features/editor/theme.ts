@@ -30,10 +30,12 @@ export function editorTheme(dark: boolean) {
         },
         ".cm-activeLine": { backgroundColor: dark ? "#ffffff03" : "#0a84ff04" },
         "&.cm-focused": { outline: "none" },
-        "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection":
-          {
-            backgroundColor: dark ? "#234c76 !important" : "#c7def8 !important",
-          },
+        "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": {
+          backgroundColor: dark ? "#2767a5 !important" : "#a8d2fa !important",
+        },
+        ".cm-selectionMatch": {
+          backgroundColor: dark ? "#0a84ff2b" : "#0a84ff24",
+        },
         ".cm-cursor": { borderLeftColor: "#0a84ff" },
         ".cm-matchingBracket": {
           backgroundColor: "#0a84ff25",

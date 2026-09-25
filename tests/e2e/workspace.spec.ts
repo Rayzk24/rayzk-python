@@ -239,3 +239,52 @@ test("visual polish: title, login controls and input answer in both themes", asy
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "test-results/login-light-mobile.png" });
 });
+
+test("console focus and CodeMirror occurrence highlights", async ({ page }) => {
+  await login(page);
+  const repl = page.getByLabel("Expression Python");
+  const output = page.getByTestId("console-output");
+  await repl.focus();
+  for (const expression of ["12 ** 2", "len('Rayzk')", "6 * 7"]) {
+    await expect(repl).toBeFocused();
+    await repl.fill(expression);
+    await repl.press("Enter");
+    await expect(repl).toBeEnabled();
+    await expect(repl).toBeFocused();
+  }
+  await expect(output).toContainText("144");
+  await expect(output).toContainText("42");
+
+  await run(page, 'first = input("Premier : ")\nsecond = input("Second : ")\nprint(first, second)');
+  const answer = page.getByLabel("Réponse Python");
+  await expect(answer).toBeFocused();
+  await answer.fill("un");
+  await answer.press("Enter");
+  await expect(answer).toBeFocused();
+  await answer.fill("deux");
+  await answer.press("Enter");
+  await expect(output).toContainText("un deux");
+  await expect(repl).toBeFocused();
+
+  await run(page, 'import time\ntime.sleep(0.5)\nanswer = input("Encore : ")');
+  const editor = page.getByLabel("Code Python");
+  await editor.click();
+  await expect(answer).toBeVisible();
+  await expect(editor).toBeFocused();
+
+  await code(page, "rayzk = 1\nprint(rayzk)\nprint(rayzk)");
+  await editor.press("ControlOrMeta+Home");
+  for (let i = 0; i < 5; i++) await editor.press("Shift+ArrowRight");
+  for (const theme of ["dark", "light"]) {
+    await expect(page.locator(".cm-selectionMatch")).toHaveCount(2);
+    const colors = await page.evaluate(() => ({
+      selection: getComputedStyle(document.querySelector(".cm-selectionBackground")!).backgroundColor,
+      match: getComputedStyle(document.querySelector(".cm-selectionMatch")!).backgroundColor,
+    }));
+    expect(colors.selection).not.toBe(colors.match);
+    expect(colors.match).toMatch(/^rgba?\(10, 132, 255/);
+    if (theme === "dark") await page.getByLabel("Passer au thème clair").click();
+  }
+  await editor.click();
+  await expect(editor).toBeFocused();
+});

@@ -26,15 +26,35 @@ export function Console({
   const input = useRef<HTMLInputElement>(null);
   const scroll = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
+  const resumeReplFocus = useRef(false);
+  const allowInputFocus = useRef(false);
+  useEffect(() => {
+    function leaveConsole(event: PointerEvent | FocusEvent) {
+      const target = event.target;
+      if (target instanceof Node && !target.parentElement?.closest(".console-input")) {
+        resumeReplFocus.current = false;
+        allowInputFocus.current = false;
+      }
+    }
+    document.addEventListener("pointerdown", leaveConsole, true);
+    document.addEventListener("focusin", leaveConsole, true);
+    return () => {
+      document.removeEventListener("pointerdown", leaveConsole, true);
+      document.removeEventListener("focusin", leaveConsole, true);
+    };
+  }, []);
   useEffect(() => {
     if (follow.current)
       scroll.current?.scrollTo({ top: scroll.current.scrollHeight });
   }, [chunks, state]);
   useEffect(() => {
+    if (state === "running") allowInputFocus.current = true;
     if (state === "input") {
       setValue("");
-      input.current?.focus();
+      if (allowInputFocus.current) input.current?.focus({ preventScroll: true });
     }
+    if (state === "ready" && resumeReplFocus.current)
+      input.current?.focus({ preventScroll: true });
   }, [state]);
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -143,6 +163,10 @@ export function Console({
               state === "input" ? "Réponse Python" : "Expression Python"
             }
             value={value}
+            onFocus={() => {
+              resumeReplFocus.current = true;
+              allowInputFocus.current = true;
+            }}
             onChange={(e) => setValue(e.target.value)}
             disabled={disabled}
             autoComplete="off"
