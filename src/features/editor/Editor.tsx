@@ -35,6 +35,7 @@ import {
 import { python } from "@codemirror/lang-python";
 import { editorTheme } from "./theme";
 import { selectionMatchHighlighting } from "./selection";
+import { createSearchPanel } from "./searchPanel";
 const markError = StateEffect.define<number | undefined>();
 const errorField = StateField.define<DecorationSet>({
   create: () => Decoration.none,
@@ -89,7 +90,7 @@ export function Editor(props: Props) {
           bracketMatching(),
           closeBrackets(),
           selectionMatchHighlighting(),
-          search({ top: true }),
+          search({ top: true, createPanel: createSearchPanel }),
           EditorState.phrases.of({
             Find: "Rechercher",
             Replace: "Remplacer par",

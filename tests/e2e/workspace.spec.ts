@@ -459,3 +459,58 @@ test("search panel polish preserves options, keyboard focus and compact layouts"
   await page.getByRole("button", { name: "Fermer" }).click();
   await expect(find).toHaveCount(0);
 });
+
+test("selected search initializes immediately and keeps a live result counter", async ({ page }) => {
+  await login(page);
+  const editor = page.getByLabel("Code Python");
+  await code(page, "self self self\nsolo");
+  await editor.press("ControlOrMeta+Home");
+  for (let i = 0; i < 4; i++) await editor.press("Shift+ArrowRight");
+  await editor.press("ControlOrMeta+f");
+  const find = page.getByRole("textbox", { name: "Rechercher" });
+  const count = page.getByRole("status", { name: "Résultats de recherche" });
+  await expect(find).toHaveValue("self");
+  await expect(page.locator(".cm-searchMatch")).toHaveCount(3);
+  await expect(page.locator(".cm-searchMatch-selected")).toHaveCount(1);
+  await expect(count).toHaveText("1 / 3");
+  await page.getByRole("button", { name: "Suivant" }).click();
+  await expect(count).toHaveText("2 / 3");
+  await page.getByRole("button", { name: "Précédent" }).click();
+  await expect(count).toHaveText("1 / 3");
+  await find.fill("");
+  await expect(page.locator(".cm-searchMatch")).toHaveCount(0);
+  for (const [character, total] of [["s", 4], ["e", 3], ["l", 3], ["f", 3]] as const) {
+    await find.pressSequentially(character);
+    await expect(page.locator(".cm-searchMatch")).toHaveCount(total);
+    await expect(count).toContainText(`/ ${total}`);
+  }
+  await find.fill("absent");
+  await expect(count).toHaveText("Aucun résultat");
+  await expect(page.locator(".cm-searchMatch")).toHaveCount(0);
+  await expect(page.locator(".cm-selectionMatch")).toHaveCount(0);
+  await find.fill("solo");
+  await expect(count).toHaveText("1 résultat");
+  await expect(page.locator(".cm-searchMatch-selected")).toHaveCount(1);
+  await find.fill("self");
+  for (const theme of ["dark", "light"]) {
+    const colors = await page.evaluate(() => ({
+      active: getComputedStyle(document.querySelector(".cm-searchMatch-selected")!).backgroundColor,
+      other: getComputedStyle(document.querySelector(".cm-searchMatch:not(.cm-searchMatch-selected)")!).backgroundColor,
+      manual: getComputedStyle(document.querySelector(".cm-selectionBackground")!).backgroundColor,
+    }));
+    expect(new Set(Object.values(colors)).size).toBe(3);
+    expect(colors.active).toMatch(/^rgba?\(10, 132, 255/);
+    expect(colors.other).toMatch(/^rgba?\(10, 132, 255/);
+    await page.screenshot({ path: `test-results/search-results-${theme}.png` });
+    if (theme === "dark") await page.getByLabel("Passer au thème clair").click();
+  }
+  for (const [name, description] of [
+    ["Respecter la casse", "Distingue les majuscules et les minuscules."],
+    ["Expression régulière", "Utilise une expression régulière pour la recherche."],
+    ["Mot entier", "Recherche uniquement le mot complet."],
+  ] as const) {
+    const option = page.getByRole("checkbox", { name });
+    await expect(option).toHaveAttribute("title", description);
+    await expect(option).toHaveAttribute("aria-description", description);
+  }
+});

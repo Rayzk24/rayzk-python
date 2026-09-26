@@ -92,6 +92,7 @@ export function editorTheme(dark: boolean) {
           boxShadow: "0 0 0 2px #0a84ff20",
         },
         ".cm-panel.cm-search button.cm-button": {
+          backgroundImage: "none",
           fontSize: "12px",
           minHeight: "32px",
           padding: "5px 10px",
@@ -106,6 +107,7 @@ export function editorTheme(dark: boolean) {
           borderColor: "#0a84ff55",
         },
         ".cm-panel.cm-search button.cm-button:active": {
+          backgroundImage: "none",
           backgroundColor: "#0a84ff20",
         },
         ".cm-panel.cm-search button:focus-visible, .cm-panel.cm-search input[type=checkbox]:focus-visible": {
@@ -170,10 +172,19 @@ export function editorTheme(dark: boolean) {
           backgroundColor: "var(--hover)",
         },
         ".cm-searchMatch": {
-          backgroundColor: dark ? "#0a84ff45" : "#0a84ff35",
+          backgroundColor: dark ? "#0a84ff70 !important" : "#0a84ff65 !important",
+          boxShadow: "inset 0 -1px #0a84ff90",
         },
         ".cm-searchMatch-selected": {
-          backgroundColor: dark ? "#0a84ff85" : "#0a84ff70",
+          backgroundColor: dark ? "#0a84ffb0 !important" : "#0a84ff95 !important",
+          outline: "1px solid #0a84ff",
+          borderRadius: "2px",
+        },
+        ".cm-search-count": {
+          color: "var(--muted)",
+          fontSize: "11px",
+          whiteSpace: "nowrap",
+          fontVariantNumeric: "tabular-nums",
         },
         ".cm-search input, .cm-search button": {
           fontSize: "16px",
