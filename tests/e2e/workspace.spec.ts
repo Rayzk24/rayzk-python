@@ -501,6 +501,9 @@ test("selected search initializes immediately and keeps a live result counter", 
     expect(new Set(Object.values(colors)).size).toBe(3);
     expect(colors.active).toMatch(/^rgba?\(10, 132, 255/);
     expect(colors.other).toMatch(/^rgba?\(10, 132, 255/);
+    await expect(page.getByRole("button", { name: "Remplacer", exact: true })).toHaveCSS(
+      "background-color", theme === "dark" ? "rgb(8, 9, 13)" : "rgb(239, 241, 245)",
+    );
     await page.screenshot({ path: `test-results/search-results-${theme}.png` });
     if (theme === "dark") await page.getByLabel("Passer au thème clair").click();
   }
