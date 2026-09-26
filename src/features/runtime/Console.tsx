@@ -11,9 +11,11 @@ import { errorLine } from "./protocol";
 export function Console({
   runtime,
   onLine,
+  onRun,
 }: {
   runtime: PythonRuntime;
   onLine: (line: number) => void;
+  onRun: () => void;
 }) {
   const { state, chunks, more, version } = useSyncExternalStore(
     runtime.subscribe,
@@ -184,6 +186,12 @@ export function Console({
                       : "Une expression, puis Entrée"
             }
             onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (state === "ready") onRun();
+                return;
+              }
               if (state !== "ready" || !history.length) return;
               if (e.key === "ArrowUp" || e.key === "ArrowDown") {
                 e.preventDefault();

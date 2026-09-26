@@ -288,3 +288,134 @@ test("console focus and CodeMirror occurrence highlights", async ({ page }) => {
   await editor.click();
   await expect(editor).toBeFocused();
 });
+
+test("editor search, replace and bracket matching in both themes", async ({ page }) => {
+  await login(page);
+  const editor = page.getByLabel("Code Python");
+  await code(page, "lait = 1\nprint(lait)\nprint(lait)");
+  await editor.press("ControlOrMeta+Home");
+  for (let i = 0; i < 4; i++) await editor.press("Shift+ArrowRight");
+  for (const theme of ["dark", "light"]) {
+    await expect(page.locator(".cm-selectionMatch")).toHaveCount(2);
+    const colors = await page.evaluate(() => ({
+      selection: getComputedStyle(document.querySelector(".cm-selectionBackground")!).backgroundColor,
+      match: getComputedStyle(document.querySelector(".cm-selectionMatch")!).backgroundColor,
+    }));
+    expect(colors.selection).not.toBe(colors.match);
+    expect(colors.match).toMatch(/^rgba?\(10, 132, 255/);
+    if (theme === "dark") await page.getByLabel("Passer au thème clair").click();
+  }
+
+  await editor.press("ControlOrMeta+f");
+  const find = page.getByRole("textbox", { name: "Rechercher" });
+  const replace = page.getByRole("textbox", { name: "Remplacer par" });
+  await expect(find).toBeFocused();
+  await expect(find).toHaveValue("lait");
+  await page.getByRole("button", { name: "Suivant" }).click();
+  await expect(page.locator(".cm-searchMatch-selected")).toHaveCount(1);
+  await page.getByRole("button", { name: "Précédent" }).click();
+  await expect(page.locator(".cm-searchMatch-selected")).toHaveCount(1);
+  await replace.fill("eau");
+  await page.getByRole("button", { name: "Remplacer", exact: true }).click();
+  await expect(editor).toContainText("eau");
+  await page.getByRole("button", { name: "Tout remplacer" }).click();
+  await expect(editor).not.toContainText("lait");
+  await expect(editor).toContainText("print(eau)");
+  await find.fill("eau");
+  await replace.fill("");
+  await page.getByRole("button", { name: "Tout remplacer" }).click();
+  await expect(editor).not.toContainText("eau");
+
+  await find.press("Escape");
+  await editor.focus();
+  await editor.press("ControlOrMeta+h");
+  await expect(find).toBeFocused();
+  await page.getByRole("button", { name: "Fermer" }).click();
+  await page.getByRole("button", { name: "Rechercher et remplacer" }).click();
+  await expect(find).toBeFocused();
+  await expect(page.getByRole("button", { name: "Suivant" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Précédent" })).toBeVisible();
+  await page.getByRole("button", { name: "Fermer" }).click();
+
+  for (const theme of ["light", "dark"]) {
+    await code(page, "value = ([{}])");
+    for (const steps of [9, 10, 11]) {
+      await editor.press("ControlOrMeta+Home");
+      for (let i = 0; i < steps; i++) await editor.press("ArrowRight");
+      await expect(page.locator(".cm-matchingBracket")).toHaveCount(2);
+      const color = await page.locator(".cm-matchingBracket").first().evaluate(
+        (node) => getComputedStyle(node).backgroundColor,
+      );
+      expect(color).toMatch(/^rgba?\(10, 132, 255/);
+    }
+    if (theme === "light") await page.getByLabel("Passer au thème sombre").click();
+  }
+  await editor.press("ControlOrMeta+f");
+  await expect(find).toBeFocused();
+  expect(await page.locator(".cm-panels").evaluate(
+    (node) => getComputedStyle(node).backgroundColor,
+  )).not.toBe("rgba(0, 0, 0, 0)");
+});
+
+test("whitespace selections and literal operator typography in both themes", async ({ page }) => {
+  await login(page);
+  const editor = page.getByLabel("Code Python");
+  for (const theme of ["dark", "light"]) {
+    for (const selection of [" ", "    ", "\t", "\n", "lait", " lait"]) {
+      await code(page, `${selection}\nx\n${selection}\nx\n${selection}`);
+      await editor.press("ControlOrMeta+Home");
+      await expect(page.locator(".cm-selectionMatch")).toHaveCount(0);
+      for (let i = 0; i < selection.length; i++) await editor.press("Shift+ArrowRight");
+      await expect(page.locator(".cm-selectionMatch")).toHaveCount(/\S/.test(selection) ? 2 : 0);
+    }
+    await code(page, "# != == >= <= -> => ===");
+    await expect(editor).toHaveText("# != == >= <= -> => ===");
+    expect(await editor.evaluate((node) => getComputedStyle(node).fontVariantLigatures)).toBe("none");
+    const features = await editor.evaluate((node) => getComputedStyle(node).fontFeatureSettings);
+    for (const feature of ["liga", "clig", "dlig", "calt"]) expect(features).toContain(`"${feature}" 0`);
+    if (theme === "dark") await page.getByLabel("Passer au thème clair").click();
+  }
+});
+
+test("run shortcut is contextual and never submits REPL or pending input", async ({ page }) => {
+  await login(page);
+  const editor = page.getByLabel("Code Python");
+  const repl = page.getByLabel("Expression Python");
+  const output = page.getByTestId("console-output");
+  await code(page, 'count = globals().get("count", 0) + 1\nprint("execution", count)');
+  await editor.press("ControlOrMeta+Enter");
+  await expect(output).toContainText("execution 1");
+  await repl.fill('print("REPL-not-submitted")');
+  await repl.press("ControlOrMeta+Enter");
+  await expect(output).toContainText("execution 2");
+  await expect(output).not.toContainText("REPL-not-submitted");
+  await expect(repl).toBeEnabled();
+  await editor.press("ControlOrMeta+f");
+  const find = page.getByRole("textbox", { name: "Rechercher" });
+  await find.fill("count");
+  await find.press("ControlOrMeta+Enter");
+  const replace = page.getByRole("textbox", { name: "Remplacer par" });
+  await replace.fill("counter");
+  await replace.press("ControlOrMeta+Enter");
+  await page.getByRole("button", { name: "Fermer" }).click();
+  await repl.fill("count");
+  await repl.press("Enter");
+  await expect(output).toContainText(">>> count\n2\n");
+  await expect(output).not.toContainText("execution 3");
+  await repl.fill("12 ** 2");
+  await repl.press("Enter");
+  await expect(output).toContainText("144");
+
+  await run(page, 'name = input("Nom : ")\nprint("Bonjour", name)');
+  const answer = page.getByLabel("Réponse Python");
+  await expect(answer).toBeFocused();
+  await answer.fill("Rayzk");
+  await answer.press("ControlOrMeta+Enter");
+  await expect(answer).toBeVisible();
+  await expect(answer).toHaveValue("Rayzk");
+  await expect(output).not.toContainText("Bonjour Rayzk");
+  await editor.press("ControlOrMeta+Enter");
+  await expect(answer).toBeVisible();
+  await answer.press("Enter");
+  await expect(output).toContainText("Bonjour Rayzk");
+});

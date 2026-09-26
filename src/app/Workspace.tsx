@@ -7,7 +7,7 @@ import {
   type CSSProperties,
 } from "react";
 import type { User } from "@supabase/supabase-js";
-import { FileCode2 } from "lucide-react";
+import { FileCode2, Search } from "lucide-react";
 import { supabase } from "../features/auth/client";
 import { DocumentStore } from "../features/documents/store";
 import { repository } from "../features/documents/repository";
@@ -42,6 +42,7 @@ export default function Workspace({
   const [split, setSplit] = useState(60);
   const [cursor, setCursor] = useState([1, 1]);
   const [jump, setJump] = useState<{ line: number; seq: number }>();
+  const [searchSignal, setSearchSignal] = useState(0);
   const [runSource, setRunSource] = useState<{ id: string; code: string }>();
   const panes = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -251,7 +252,17 @@ export default function Workspace({
                 <span>{doc?.kind === "saved" ? doc.name : "main"}.py</span>
                 <small>PYTHON</small>
               </span>
-              <span className="editor-hint">UTF-8</span>
+              <span className="editor-actions">
+                <button
+                  className="icon-button"
+                  aria-label="Rechercher et remplacer"
+                  title="Rechercher et remplacer (Ctrl/Cmd + F)"
+                  onClick={() => setSearchSignal((value) => value + 1)}
+                >
+                  <Search size={15} />
+                </button>
+                <span className="editor-hint">UTF-8</span>
+              </span>
             </div>
             {doc ? (
               <Editor
@@ -260,6 +271,7 @@ export default function Workspace({
                 dark={theme.dark}
                 error={line}
                 jump={jump}
+                searchSignal={searchSignal}
                 onRun={run}
                 onCursor={onCursor}
                 onChange={(content) => {
@@ -317,6 +329,7 @@ export default function Workspace({
             }}
           />
           <Console
+            onRun={run}
             runtime={runtime}
             onLine={(line) => {
               if (!runSource) return;

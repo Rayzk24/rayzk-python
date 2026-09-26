@@ -27,9 +27,14 @@ import {
   historyKeymap,
   indentWithTab,
 } from "@codemirror/commands";
-import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import {
+  search,
+  searchKeymap,
+  openSearchPanel,
+} from "@codemirror/search";
 import { python } from "@codemirror/lang-python";
 import { editorTheme } from "./theme";
+import { selectionMatchHighlighting } from "./selection";
 const markError = StateEffect.define<number | undefined>();
 const errorField = StateField.define<DecorationSet>({
   create: () => Decoration.none,
@@ -55,6 +60,7 @@ type Props = {
   dark: boolean;
   error?: number;
   jump?: { line: number; seq: number };
+  searchSignal: number;
   onChange: (code: string) => void;
   onRun: () => void;
   onCursor: (line: number, column: number) => void;
@@ -64,6 +70,7 @@ export function Editor(props: Props) {
   const view = useRef<EditorView | null>(null);
   const theme = useRef(new Compartment());
   const latest = useRef(props);
+  const lastSearchSignal = useRef(props.searchSignal);
   latest.current = props;
   useEffect(() => {
     if (!host.current) return;
@@ -81,7 +88,21 @@ export function Editor(props: Props) {
           indentOnInput(),
           bracketMatching(),
           closeBrackets(),
-          highlightSelectionMatches(),
+          selectionMatchHighlighting(),
+          search({ top: true }),
+          EditorState.phrases.of({
+            Find: "Rechercher",
+            Replace: "Remplacer par",
+            next: "Suivant",
+            previous: "Précédent",
+            all: "Tout sélectionner",
+            "match case": "Respecter la casse",
+            regexp: "Expression régulière",
+            "by word": "Mot entier",
+            replace: "Remplacer",
+            "replace all": "Tout remplacer",
+            close: "Fermer",
+          }),
           errorField,
           EditorState.tabSize.of(4),
           indentUnit.of("    "),
@@ -92,6 +113,7 @@ export function Editor(props: Props) {
             autocapitalize: "off",
           }),
           keymap.of([
+            { key: "Mod-h", run: openSearchPanel },
             {
               key: "Mod-Enter",
               run: () => {
@@ -142,6 +164,12 @@ export function Editor(props: Props) {
   useEffect(() => {
     view.current?.dispatch({ effects: markError.of(props.error) });
   }, [props.error]);
+  useEffect(() => {
+    if (lastSearchSignal.current !== props.searchSignal) {
+      lastSearchSignal.current = props.searchSignal;
+      if (view.current) openSearchPanel(view.current);
+    }
+  }, [props.searchSignal]);
   useEffect(() => {
     const editor = view.current;
     const line = props.jump?.line;
