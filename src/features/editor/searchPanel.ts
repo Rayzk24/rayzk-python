@@ -15,6 +15,10 @@ export function createSearchPanel(view: EditorView): Panel {
     input.className = "cm-textfield";
     input.name = name;
     input.value = value;
+    input.autocomplete = "off";
+    input.setAttribute("autocorrect", "off");
+    input.autocapitalize = "off";
+    input.spellcheck = false;
     input.placeholder = label;
     input.setAttribute("aria-label", label);
     input.setAttribute("form", "");

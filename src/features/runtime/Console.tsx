@@ -172,6 +172,7 @@ export function Console({
             onChange={(e) => setValue(e.target.value)}
             disabled={disabled}
             autoComplete="off"
+            autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
             placeholder={
