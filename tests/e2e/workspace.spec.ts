@@ -419,3 +419,43 @@ test("run shortcut is contextual and never submits REPL or pending input", async
   await answer.press("Enter");
   await expect(output).toContainText("Bonjour Rayzk");
 });
+
+test("search panel polish preserves options, keyboard focus and compact layouts", async ({ page }) => {
+  await login(page);
+  await code(page, "lait Lait laitier\nlait");
+  await page.getByLabel("Code Python").press("ControlOrMeta+f");
+  const find = page.getByRole("textbox", { name: "Rechercher" });
+  await find.fill("lait");
+  await find.press("ArrowRight");
+  await expect(page.locator(".cm-searchMatch")).toHaveCount(4);
+  await find.press("Tab");
+  await expect(page.getByRole("button", { name: "Suivant" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Précédent" })).toBeFocused();
+  const caseOption = page.getByRole("checkbox", { name: "Respecter la casse" });
+  await caseOption.focus();
+  await page.keyboard.press("Space");
+  await expect(caseOption).toBeChecked();
+  await expect(page.locator(".cm-searchMatch")).toHaveCount(3);
+  await page.getByRole("checkbox", { name: "Mot entier" }).check();
+  await expect(page.locator(".cm-searchMatch")).toHaveCount(2);
+  await page.getByRole("checkbox", { name: "Expression régulière" }).check();
+  await find.fill("lait|Lait");
+  await find.press("ArrowRight");
+  await expect(page.locator(".cm-searchMatch")).toHaveCount(3);
+  expect(await caseOption.evaluate((node) => getComputedStyle(node).appearance)).toBe("none");
+  for (const theme of ["dark", "light"]) {
+    for (const width of [1440, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(find).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect(await page.locator(".cm-search").evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+      await find.focus();
+      await expect(find).toBeFocused();
+      await page.screenshot({ path: `test-results/search-panel-${theme}-${width}.png` });
+    }
+    if (theme === "dark") await page.getByLabel("Passer au thème clair").click();
+  }
+  await page.getByRole("button", { name: "Fermer" }).click();
+  await expect(find).toHaveCount(0);
+});
