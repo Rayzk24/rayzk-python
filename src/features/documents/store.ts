@@ -6,6 +6,9 @@ import {
   type PythonDocument,
 } from "./model";
 type Snapshot = { entries: Entry[]; loaded: boolean; notice: string };
+const sameContent = (a: PythonDocument, b: PythonDocument) =>
+  a.content === b.content && a.name === b.name &&
+  (a.code_type ?? null) === (b.code_type ?? null) && (a.topic ?? null) === (b.topic ?? null);
 /** One serial save queue per document. CAS revisions also protect against other tabs/devices. */
 export class DocumentStore {
   private entries = new Map<string, Entry>();
@@ -110,7 +113,7 @@ export class DocumentStore {
           !this.locks.has(doc.id) &&
           local.doc.revision !== doc.revision
         ) {
-          if (local.doc.content === doc.content && local.doc.name === doc.name)
+          if (sameContent(local.doc, doc))
             this.entries.set(doc.id, { doc, pending: false, status: "saved" });
           else
             this.entries.set(doc.id, {
@@ -144,13 +147,13 @@ export class DocumentStore {
   }
   update(
     id: string,
-    change: Partial<Pick<PythonDocument, "content" | "name">>,
+    change: Partial<Pick<PythonDocument, "content" | "name" | "code_type" | "topic">>,
   ) {
     const entry = this.entries.get(id);
     if (!entry) return;
     if (
       Object.entries(change).every(
-        ([key, value]) => entry.doc[key as "content" | "name"] === value,
+        ([key, value]) => entry.doc[key as "content" | "name" | "code_type" | "topic"] === value,
       )
     )
       return;
@@ -174,13 +177,15 @@ export class DocumentStore {
       }, 650),
     );
   }
-  create(name: string, content: string) {
+  create(name: string, content: string, metadata: Pick<PythonDocument, "code_type" | "topic"> = {}) {
     const doc = newDocument(
       this.user,
       "saved",
       content,
       name.trim().slice(0, 100),
     );
+    if (metadata.code_type) doc.code_type = metadata.code_type;
+    if (metadata.topic) doc.topic = metadata.topic;
     this.entries.set(doc.id, { doc, pending: true, status: "saving" });
     this.publish();
     void this.flush(doc.id);
@@ -223,12 +228,10 @@ export class DocumentStore {
           // creating a false conflict, while retaining edits typed during get().
           if (
             remote?.id === id &&
-            remote.content === sent.content &&
-            remote.name === sent.name
+            sameContent(remote, sent)
           ) {
             const changed =
-              latest.doc.content !== sent.content ||
-              latest.doc.name !== sent.name;
+              !sameContent(latest.doc, sent);
             this.entries.set(id, {
               doc: changed
                 ? { ...latest.doc, revision: remote.revision }
@@ -243,9 +246,7 @@ export class DocumentStore {
           this.publish();
           return;
         }
-        const changed =
-          current.doc.content !== sent.content ||
-          current.doc.name !== sent.name;
+        const changed = !sameContent(current.doc, sent);
         this.entries.set(id, {
           doc: changed ? { ...current.doc, revision: saved.revision } : saved,
           pending: changed,
@@ -273,7 +274,10 @@ export class DocumentStore {
     const remote = entry.remote;
     if (choice === "remote") {
       // Preserve the displaced local work as a separate library document.
-      this.create(`${entry.doc.name} — copie locale`, entry.doc.content);
+      this.create(`${entry.doc.name} — copie locale`, entry.doc.content, {
+        code_type: entry.doc.code_type,
+        topic: entry.doc.topic,
+      });
       this.entries.delete(id);
       if (remote)
         this.entries.set(remote.id, {

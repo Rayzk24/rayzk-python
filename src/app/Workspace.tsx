@@ -10,6 +10,7 @@ import type { User } from "@supabase/supabase-js";
 import { FileCode2, Search } from "lucide-react";
 import { supabase } from "../features/auth/client";
 import { DocumentStore } from "../features/documents/store";
+import { existingTopics, isCodeType, resolveTopic, type CodeType } from "../features/documents/metadata";
 import { repository } from "../features/documents/repository";
 import { readPythonFile } from "../features/documents/files";
 import { initialCode, MAX_CODE_BYTES } from "../features/documents/model";
@@ -38,6 +39,13 @@ export default function Workspace({
   const [library, setLibrary] = useState(false);
   const [mobile, setMobile] = useState<"editor" | "console">("editor");
   const [modal, setModal] = useState<Modal | null>(null);
+  const metadataKey = `rayzk-python.recent-metadata.${user.id}`;
+  const [recentMetadata, setRecentMetadata] = useState<{ code_type: CodeType | null; topic: string | null }>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(metadataKey) || "{}");
+      return { code_type: isCodeType(stored.code_type) ? stored.code_type : null, topic: typeof stored.topic === "string" ? stored.topic : null };
+    } catch { return { code_type: null, topic: null }; }
+  });
   const [message, setMessage] = useState("");
   const [split, setSplit] = useState(60);
   const [cursor, setCursor] = useState([1, 1]);
@@ -127,13 +135,22 @@ export default function Workspace({
   function acceptModal(form: FormData) {
     if (!modal) return;
     const name = String(form.get("name") || "").trim();
+    const rawType = String(form.get("code_type") || "");
+    const metadata = {
+      code_type: isCodeType(rawType) ? rawType : null,
+      topic: resolveTopic(String(form.get("topic") || ""), existingTopics(data.entries.map((entry) => entry.doc))),
+    };
     switch (modal.type) {
       case "save":
-        if (name && doc) setActiveId(store.create(name, doc.content));
+        if (name && doc) {
+          setActiveId(store.create(name, doc.content, metadata));
+          setRecentMetadata(metadata);
+          try { localStorage.setItem(metadataKey, JSON.stringify(metadata)); } catch { /* Optional preference. */ }
+        }
         else return;
         break;
       case "rename":
-        if (name) store.update(modal.id, { name });
+        if (name) store.update(modal.id, { name, ...metadata });
         else return;
         break;
       case "delete":
@@ -372,6 +389,7 @@ export default function Workspace({
           modal={modal}
           doc={doc}
           entries={data.entries}
+          recentMetadata={recentMetadata}
           onClose={() => setModal(null)}
           onSubmit={acceptModal}
         />

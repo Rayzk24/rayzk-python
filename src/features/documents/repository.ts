@@ -35,10 +35,11 @@ export function repository(user: string): DocumentRepository {
                 kind: doc.kind,
                 name: doc.name,
                 content: doc.content,
+                ...(doc.kind === "saved" ? { code_type: doc.code_type ?? null, topic: doc.topic ?? null } : {}),
               })
           : supabase
               .from(table)
-              .update({ name: doc.name, content: doc.content })
+              .update({ name: doc.name, content: doc.content, ...(doc.kind === "saved" ? { code_type: doc.code_type ?? null, topic: doc.topic ?? null } : {}) })
               .eq("id", doc.id)
               .eq("user_id", user)
               .eq("revision", doc.revision);

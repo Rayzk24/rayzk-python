@@ -1,9 +1,12 @@
+import type { CodeType } from "./metadata";
 export type PythonDocument = {
   id: string;
   user_id: string;
   kind: "draft" | "saved";
   name: string;
   content: string;
+  code_type?: CodeType | null;
+  topic?: string | null;
   revision: number;
   updated_at: string;
 };

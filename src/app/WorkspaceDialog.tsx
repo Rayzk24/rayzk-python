@@ -2,6 +2,7 @@ import { Download } from "lucide-react";
 import { Dialog } from "../components/Dialog";
 import { downloadPython } from "../features/documents/files";
 import type { Entry, PythonDocument } from "../features/documents/model";
+import { codeTypes, existingTopics, type CodeType } from "../features/documents/metadata";
 export type Modal =
   | { type: "save" }
   | { type: "rename" | "delete"; id: string }
@@ -12,6 +13,7 @@ type Props = {
   modal: Modal;
   doc?: PythonDocument;
   entries: Entry[];
+  recentMetadata: { code_type: CodeType | null; topic: string | null };
   onClose: () => void;
   onSubmit: (data: FormData) => void;
 };
@@ -19,18 +21,21 @@ export function WorkspaceDialog({
   modal,
   doc,
   entries,
+  recentMetadata,
   onClose,
   onSubmit,
 }: Props) {
   const modalDoc =
     "id" in modal ? entries.find((e) => e.doc.id === modal.id)?.doc : undefined;
+  const selectedType = modal.type === "rename" ? modalDoc?.code_type ?? null : recentMetadata.code_type;
+  const selectedTopic = modal.type === "rename" ? modalDoc?.topic ?? "" : recentMetadata.topic ?? "";
   return (
     <Dialog
       title={
         modal.type === "save"
           ? "Enregistrer dans la bibliothèque"
           : modal.type === "rename"
-            ? "Renommer le code"
+            ? "Modifier le code"
             : modal.type === "delete"
               ? "Supprimer ce code ?"
               : modal.type === "logout"
@@ -51,20 +56,38 @@ export function WorkspaceDialog({
       danger={modal.type === "delete" || modal.type === "logout"}
     >
       {modal.type === "save" || modal.type === "rename" ? (
-        <label>
-          Nom
-          <input
-            name="name"
-            maxLength={100}
-            required
-            autoFocus
-            defaultValue={
-              modalDoc?.name ??
-              (doc?.kind === "saved" ? `${doc.name} — copie` : "")
-            }
-            placeholder="Ex. Tri par insertion"
-          />
-        </label>
+        <div className="document-fields">
+          <label>
+            Nom
+            <input
+              name="name"
+              maxLength={100}
+              required
+              autoFocus
+              defaultValue={
+                modalDoc?.name ??
+                (doc?.kind === "saved" ? `${doc.name} — copie` : "")
+              }
+              placeholder="Ex. Tri par insertion"
+            />
+          </label>
+          <fieldset className="document-type">
+            <legend>Type <small>facultatif</small></legend>
+            {["", ...codeTypes].map((type) => (
+              <label key={type}>
+                <input type="radio" name="code_type" value={type} defaultChecked={(selectedType ?? "") === type} />
+                <span>{type || "Aucun"}</span>
+              </label>
+            ))}
+          </fieldset>
+          <label>
+            <span>Thème <small>facultatif</small></span>
+            <input name="topic" list="existing-topics" maxLength={60} defaultValue={selectedTopic} placeholder="Ex. Classes" autoComplete="off" />
+            <datalist id="existing-topics">
+              {existingTopics(entries.map((entry) => entry.doc)).map((topic) => <option key={topic} value={topic} />)}
+            </datalist>
+          </label>
+        </div>
       ) : modal.type === "delete" ? (
         <p>
           « {modalDoc?.name} » sera supprimé de ta bibliothèque. Cette action

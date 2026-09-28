@@ -4,13 +4,17 @@ L’IDE utilise le **même projet Supabase et les mêmes comptes Auth que Rayzk 
 
 ## 1. Identifier le bon projet
 
+**Mise à jour Bibliothèque (septembre 2026) :** si la V1 est déjà installée, applique uniquement la migration additive `supabase/migrations/202609280001_python_document_metadata.sql` dans **SQL Editor > New query > Run**, avant de déployer cette version. Elle ajoute `code_type` et `topic` facultatifs à `python_documents`, donne à `authenticated` les droits d’écriture sur ces deux colonnes et conserve toutes les lignes et politiques RLS existantes. Vérifie ensuite dans **Table Editor > python_documents** que ces colonnes acceptent `NULL` et que les anciens codes sont toujours présents. N’exécute pas à nouveau la migration V1. Pour une installation neuve, exécute d’abord `202609250001_python_documents.sql`, puis `202609280001_python_document_metadata.sql`, dans cet ordre. Aucune migration n’est appliquée automatiquement au Supabase distant.
+
 1. Ouvre [Supabase](https://supabase.com/dashboard), puis le projet utilisé par ton dashboard.
 2. Dans **Project Settings > Data API**, compare le **Project URL** avec la valeur de `VITE_SUPABASE_URL` dans le `.env.local` du dashboard. Ne colle pas cette valeur dans un ticket public.
 3. Dans **Authentication > Users**, vérifie que ton compte habituel est présent. Tu gardes cet email et ce mot de passe ; aucun compte supplémentaire n’est nécessaire.
 
-## 2. Appliquer l’unique migration de l’IDE
+## 2. Appliquer les migrations de l’IDE
 
 **Cette étape est manuelle. Le développement n’applique aucune modification distante.**
+
+Si `python_documents` existe déjà, **ne rejoue pas** les étapes de création V1 ci-dessous : applique uniquement la migration Bibliothèque indiquée plus haut, puis exécute `supabase/verify.sql` pour contrôler les politiques et les droits. Les étapes numérotées suivantes décrivent une installation neuve.
 
 1. Ouvre **SQL Editor > New query** dans ce même projet.
 2. Ouvre localement `supabase/migrations/202609250001_python_documents.sql` dans ce dépôt.
@@ -22,7 +26,7 @@ L’IDE utilise le **même projet Supabase et les mêmes comptes Auth que Rayzk 
    - quatre politiques `python_select_own`, `python_insert_own`, `python_update_own`, `python_delete_own` doivent apparaître ;
    - elles ciblent `authenticated` et comparent `auth.uid()` à `user_id` ;
    - aucun droit de table ni de colonne pour `anon` ;
-   - `authenticated` peut lire/supprimer et insérer les colonnes métier ; la mise à jour est limitée à `name` et `content` ;
+   - `authenticated` peut lire/supprimer et insérer les colonnes métier ; après la migration Bibliothèque, la mise à jour est limitée à `name`, `content`, `code_type` et `topic` ;
    - l’index unique `python_one_draft_per_user` existe.
 
 La table contient le brouillon (`kind = draft`, un seul par compte) et les codes de bibliothèque (`kind = saved`). Les révisions et dates sont produites par PostgreSQL. La sauvegarde met à jour uniquement la révision qu’elle a lue : une autre version entraîne un conflit explicite, jamais un écrasement automatique. RLS s’applique aussi aux appels REST directs.

@@ -24,6 +24,15 @@ it("enforces ownership, anonymous denial, immutable ownership, CAS revision and 
     await db.exec(
       `insert into public.python_documents(id, user_id, kind, name, content) values ('aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa', auth.uid(), 'draft', 'Brouillon', 'print(1)');`,
     );
+    await db.exec("reset role;");
+    await db.exec(await readFile(new URL("../../supabase/migrations/202609280001_python_document_metadata.sql", import.meta.url), "utf8"));
+    await db.exec("set role authenticated; set request.jwt.claim.sub = '11111111-1111-4111-a111-111111111111';");
+    expect((await db.query<{ code_type: string | null; topic: string | null }>("select code_type, topic from public.python_documents")).rows[0])
+      .toEqual({ code_type: null, topic: null });
+    await db.exec("insert into public.python_documents(user_id, kind, name, code_type, topic) values (auth.uid(), 'saved', 'Exercice', 'Cours', 'Classes');");
+    await db.exec("update public.python_documents set code_type = 'Entraînement', topic = 'Listes' where kind = 'saved';");
+    expect((await db.query<{ topic: string }>("select topic from public.python_documents where kind = 'saved'")).rows[0]?.topic).toBe("Listes");
+    await expect(db.exec("insert into public.python_documents(user_id, kind, name, code_type) values (auth.uid(), 'saved', 'Invalide', 'Autre');")).rejects.toThrow();
     await expect(
       db.exec(
         `insert into public.python_documents(user_id, kind, name) values (auth.uid(), 'draft', 'Duplicate');`,

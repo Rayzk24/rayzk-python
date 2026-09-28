@@ -1,5 +1,7 @@
 import { BookOpen, FileCode2, Pencil, Trash2, X } from "lucide-react";
+import { useState } from "react";
 import type { Entry } from "./model";
+import { codeTypes, documentMatches, existingTopics, topicKey } from "./metadata";
 export function Library({
   entries,
   active,
@@ -15,15 +17,20 @@ export function Library({
   onDelete: (id: string) => void;
   onClose: () => void;
 }) {
-  const docs = entries
+  const [type, setType] = useState("");
+  const [topic, setTopic] = useState("");
+  const [text, setText] = useState("");
+  const allDocs = entries
     .filter((e) => e.doc.kind === "saved")
     .sort((a, b) => b.doc.updated_at.localeCompare(a.doc.updated_at));
+  const topics = existingTopics(allDocs.map((entry) => entry.doc));
+  const docs = allDocs.filter((entry) => documentMatches(entry.doc, { type, topic, text }));
   return (
     <aside className="library" aria-label="Bibliothèque">
       <div className="panel-heading">
         <span>
           <BookOpen size={16} />
-          Bibliothèque <small>{docs.length}</small>
+          Bibliothèque <small>{allDocs.length}</small>
         </span>
         <button
           className="icon-button"
@@ -48,13 +55,25 @@ export function Library({
               </span>
             </button>
           ))}
+        <div className="library-filters">
+          <select aria-label="Filtrer par type" value={type} onChange={(event) => setType(event.target.value)}>
+            <option value="">Tous les types</option>
+            {codeTypes.map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
+          <select aria-label="Filtrer par thème" value={topic} onChange={(event) => setTopic(event.target.value)}>
+            <option value="">Tous les thèmes</option>
+            {topics.map((value) => <option key={value} value={topicKey(value)}>{value}</option>)}
+          </select>
+          <input aria-label="Rechercher dans la bibliothèque" type="search" placeholder="Rechercher…" value={text} onChange={(event) => setText(event.target.value)} autoComplete="off" />
+        </div>
         <p className="eyebrow">CODES SAUVEGARDÉS</p>
-        {!docs.length && (
+        {!allDocs.length && (
           <p className="library-empty">
             Un code à garder ?<br />
             Enregistre-le ici pour le retrouver plus tard.
           </p>
         )}
+        {!!allDocs.length && !docs.length && <p className="library-empty">Aucun code ne correspond aux filtres.</p>}
         {docs.map(({ doc, status }) => (
           <div
             className={`library-item ${active === doc.id ? "selected" : ""}`}
@@ -64,6 +83,7 @@ export function Library({
               <FileCode2 size={16} />
               <span>
                 {doc.name}
+                {(doc.code_type || doc.topic) && <small className="library-metadata">{[doc.code_type, doc.topic].filter(Boolean).join(" · ")}</small>}
                 <small>
                   {status === "conflict"
                     ? "Conflit à résoudre"
