@@ -1,9 +1,13 @@
-import { BookOpen, FileCode2, Pencil, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { BookOpen, FileCode2, Pencil, RotateCcw, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Entry } from "./model";
 import { codeTypes, documentMatches, existingTopics, topicKey } from "./metadata";
+import { LibraryFilterSelect } from "./LibraryFilterSelect";
+import { emptyLibraryFilters, readLibraryFilters, validTopicFilter } from "./libraryFilters";
 export function Library({
   entries,
+  userId,
+  loaded,
   active,
   onOpen,
   onRename,
@@ -11,20 +15,34 @@ export function Library({
   onClose,
 }: {
   entries: Entry[];
+  userId: string;
+  loaded: boolean;
   active: string;
   onOpen: (id: string) => void;
   onRename: (id: string) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
 }) {
-  const [type, setType] = useState("");
-  const [topic, setTopic] = useState("");
-  const [text, setText] = useState("");
+  const storageKey = `rayzk-python.library-filters.${userId}`;
+  const [filters, setFilters] = useState(() => readLibraryFilters(localStorage, storageKey));
+  const search = useRef<HTMLInputElement>(null);
   const allDocs = entries
     .filter((e) => e.doc.kind === "saved")
     .sort((a, b) => b.doc.updated_at.localeCompare(a.doc.updated_at));
-  const topics = existingTopics(allDocs.map((entry) => entry.doc));
-  const docs = allDocs.filter((entry) => documentMatches(entry.doc, { type, topic, text }));
+  const topics = useMemo(() => existingTopics(entries.map((entry) => entry.doc)), [entries]);
+  const topicOptions = useMemo(() => topics.map(topicKey), [topics]);
+  useEffect(() => {
+    if (loaded && !validTopicFilter(filters.topic, topicOptions))
+      setFilters((current) => ({ ...current, topic: "" }));
+  }, [loaded, filters.topic, topicOptions]);
+  useEffect(() => {
+    try {
+      if (Object.values(filters).some(Boolean)) localStorage.setItem(storageKey, JSON.stringify(filters));
+      else localStorage.removeItem(storageKey);
+    } catch { /* Filters remain usable without local storage. */ }
+  }, [filters, storageKey]);
+  const docs = allDocs.filter((entry) => documentMatches(entry.doc, filters));
+  const hasFilters = Object.values(filters).some(Boolean);
   return (
     <aside className="library" aria-label="Bibliothèque">
       <div className="panel-heading">
@@ -56,15 +74,20 @@ export function Library({
             </button>
           ))}
         <div className="library-filters">
-          <select aria-label="Filtrer par type" value={type} onChange={(event) => setType(event.target.value)}>
-            <option value="">Tous les types</option>
-            {codeTypes.map((value) => <option key={value} value={value}>{value}</option>)}
-          </select>
-          <select aria-label="Filtrer par thème" value={topic} onChange={(event) => setTopic(event.target.value)}>
-            <option value="">Tous les thèmes</option>
-            {topics.map((value) => <option key={value} value={topicKey(value)}>{value}</option>)}
-          </select>
-          <input aria-label="Rechercher dans la bibliothèque" type="search" placeholder="Rechercher…" value={text} onChange={(event) => setText(event.target.value)} autoComplete="off" />
+          <LibraryFilterSelect label="Filtrer par type" value={filters.type}
+            options={[{ value: "", label: "Tous les types" }, ...codeTypes.map((value) => ({ value, label: value }))]}
+            onChange={(type) => setFilters((current) => ({ ...current, type }))} />
+          <LibraryFilterSelect label="Filtrer par thème" value={filters.topic} align="right"
+            options={[{ value: "", label: "Tous les thèmes" }, ...topics.map((value) => ({ value: topicKey(value), label: value }))]}
+            onChange={(topic) => setFilters((current) => ({ ...current, topic }))} />
+          <div className="library-search">
+            <input ref={search} aria-label="Rechercher dans la bibliothèque" type="text" placeholder="Rechercher…"
+              value={filters.text} onChange={(event) => setFilters((current) => ({ ...current, text: event.target.value }))} autoComplete="off" />
+            {filters.text && <button type="button" aria-label="Effacer la recherche" title="Effacer la recherche"
+              onClick={() => { setFilters((current) => ({ ...current, text: "" })); search.current?.focus(); }}><X size={15} /></button>}
+          </div>
+          <button className="library-filter-reset" type="button" disabled={!hasFilters}
+            onClick={() => setFilters(emptyLibraryFilters)}><RotateCcw size={12} /> Réinitialiser</button>
         </div>
         <p className="eyebrow">CODES SAUVEGARDÉS</p>
         {!allDocs.length && (

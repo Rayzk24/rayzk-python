@@ -246,6 +246,8 @@ export default function Workspace({
         {library && (
           <Library
             entries={data.entries}
+            userId={user.id}
+            loaded={data.loaded}
             active={doc?.id ?? ""}
             onClose={() => setLibrary(false)}
             onOpen={(id) => {
