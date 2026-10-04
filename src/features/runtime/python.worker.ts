@@ -1,4 +1,5 @@
-import type { PyodideInterface } from "pyodide";
+import type { Lockfile, PyodideInterface } from "pyodide";
+import { createDependencyLoader, explainImportError } from "./dependencies";
 import { version } from "pyodide/package.json";
 import type { FromWorker, ToWorker } from "./protocol";
 const scope = globalThis as unknown as {
@@ -8,6 +9,8 @@ const scope = globalThis as unknown as {
 };
 const send = (message: FromWorker) => scope.postMessage(message);
 let python: PyodideInterface;
+let prepareDependencies: (code: string) => Promise<void>;
+let replLines: string[] = [];
 let output: { stream: "stdout" | "stderr"; text: string } | undefined;
 let lastFlush = 0;
 let emitted = 0;
@@ -45,7 +48,16 @@ scope.onmessage = async ({ data }) => {
       const { loadPyodide } = (await import(
         /* @vite-ignore */ moduleURL
       )) as typeof import("pyodide");
-      python = await loadPyodide({ indexURL, fullStdLib: false });
+      const response = await fetch(`${indexURL}pyodide-lock.json`);
+      if (!response.ok) throw new Error("Catalogue Pyodide indisponible.");
+      const lock = await response.json() as Lockfile;
+      python = await loadPyodide({
+        indexURL,
+        lockFileContents: lock,
+        packageBaseUrl: `https://cdn.jsdelivr.net/pyodide/v${version}/full/`,
+      });
+      prepareDependencies = createDependencyLoader(python, lock.packages,
+        (label) => send({ type: "dependencies", label }));
       for (const stream of ["stdout", "stderr"] as const) {
         const decoder = new TextDecoder();
         const options = {
@@ -89,6 +101,9 @@ scope.onmessage = async ({ data }) => {
   truncated = false;
   let more = false;
   try {
+    if (data.mode === "script") replLines = [];
+    else replLines.push(data.code);
+    await prepareDependencies(data.mode === "repl" ? replLines.join("\n") : data.code);
     if (data.mode === "repl") {
       python.globals.set("_rayzk_line", data.code);
       more = Boolean(
@@ -108,11 +123,16 @@ scope.onmessage = async ({ data }) => {
       }
     }
   } catch (error) {
+    // Preparation may fail in the middle of an InteractiveConsole suite.
+    // Restore a fresh prompt instead of retaining an invisible partial buffer.
+    python.runPython("_rayzk_console.resetbuffer()");
+    const message = error instanceof Error ? error.message : String(error);
     write(
       "stderr",
-      `${error instanceof Error ? error.message : String(error)}\n`,
+      `${message}\n${explainImportError(message)}`,
     );
   } finally {
+    if (!more) replLines = [];
     flush();
     send({ type: "done", more });
   }

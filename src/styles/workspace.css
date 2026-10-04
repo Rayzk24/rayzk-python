@@ -731,3 +731,16 @@ kbd {
 .console-input input {
   flex: 1;
 }
+.dependency-status {
+  align-self: center;
+  color: var(--muted);
+  font-size: 12px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .run-actions:has(.dependency-status) { flex-wrap: wrap; }
+  .dependency-status { flex-basis: 100%; max-width: 100%; font-size: 11px; text-align: right; }
+}

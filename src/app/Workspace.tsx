@@ -186,6 +186,7 @@ export default function Workspace({
         onImport={(file) => void importFile(file)}
       />
       <WorkspaceToolbar
+        preparation={python.preparation}
         status={active?.status}
         state={python.state}
         hasDocument={Boolean(doc)}

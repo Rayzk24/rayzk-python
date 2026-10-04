@@ -11,7 +11,7 @@ export default defineConfig({
   preview: {
     headers: Object.fromEntries(
       readFileSync(new URL("./public/_headers", import.meta.url), "utf8")
-        .split("/pyodide/")[0]!
+        .split("\n/pyodide/")[0]!
         .split("\n")
         .filter((line) => line.startsWith("  "))
         .map((line) => {

@@ -3,6 +3,7 @@ export type ToWorker =
   | { type: "init"; input: SharedArrayBuffer }
   | { type: "run"; code: string; mode: "script" | "repl" };
 export type FromWorker =
+  | { type: "dependencies"; label: string }
   | { type: "ready"; version: string }
   | { type: "output"; stream: "stdout" | "stderr"; text: string }
   | { type: "input" }

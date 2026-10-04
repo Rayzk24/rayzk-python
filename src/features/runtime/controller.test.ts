@@ -40,7 +40,11 @@ describe("Worker protocol", () => {
     message(first, { type: "ready", version: "3.14" });
     expect(runtime.run("while True: pass", "script")).toBe(true);
     expect(runtime.run("1", "repl")).toBe(false);
+    message(first, { type: "dependencies", label: "Préparation de numpy…" });
+    expect(runtime.getSnapshot().preparation).toBe("Préparation de numpy…");
+    expect(runtime.run("import numpy", "script")).toBe(false);
     runtime.stop();
+    expect(runtime.getSnapshot().preparation).toBe("");
     expect(first.terminate).toHaveBeenCalled();
     expect(workers).toHaveLength(2);
     message(first, { type: "output", stream: "stdout", text: "stale output" });

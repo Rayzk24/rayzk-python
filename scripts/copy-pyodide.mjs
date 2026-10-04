@@ -6,7 +6,7 @@ const source = dirname(require.resolve("pyodide/package.json"));
 const version = require("pyodide/package.json").version;
 const target = new URL(`../public/pyodide/${version}/`, import.meta.url);
 await mkdir(target, { recursive: true });
-// Self-host exactly the runtime; arbitrary third-party packages are outside V1.
+// Self-host the runtime and matching lockfile; compatible wheels load on demand.
 for (const name of [
   "pyodide.mjs",
   "pyodide.asm.mjs",

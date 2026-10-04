@@ -66,12 +66,28 @@ npm run test:e2e
 
 CI GitHub Actions facultative : voir [docs/CI.md](docs/CI.md). Le modèle est prêt, mais son activation nécessite le droit GitHub d’écriture des workflows.
 
+## Bibliothèques Python
+
+Les imports sont analysés par `pyodide.code.find_imports` (parseur Python), dans le Worker. Les bibliothèques du catalogue **Pyodide 314.0.7** sont chargées automatiquement par `loadPackagesFromImports`, sans installation locale : `import numpy as np`, `from numpy import array`, etc. La bibliothèque standard n’entraîne pas d’installation PyPI. Les imports doivent apparaître dans le code analysable ; les imports dynamiques (`importlib`, `__import__`) ne sont pas préparés automatiquement.
+
+Un état « Préparation de … » apparaît près d’Exécuter. Run est protégé pendant le chargement, Stop reste disponible. Les packages restent chargés dans le Worker ; les wheels bénéficient du cache HTTP du navigateur. Stop/Reset recréent le Worker et perdent son état. Le premier chargement nécessite une connexion réseau. Une erreur réseau ne lance pas le programme avec des dépendances partiellement préparées ; relancer permet de réessayer.
+
+Les wheels officiels sont téléchargés depuis le CDN Pyodide, à la même version que le runtime, avec vérification d’intégrité. Le fallback `micropip` est limité à la liste explicite `PURE_PYTHON_PACKAGES` dans `dependencies.ts` : actuellement **snowballstemmer 2.2.0** (Python pur). Les imports inconnus ne déclenchent jamais une installation PyPI arbitraire : le vrai `ModuleNotFoundError` est conservé avec une explication. Une bibliothèque native doit être compilée pour WebAssembly ; « tous les packages pip » ne sont pas compatibles. Les programmes restent du code personnel, pas une sandbox pour du code hostile.
+
+### Pygame : limite actuelle
+
+Le catalogue contient **pygame-ce 2.5.7**, avec l’import normal `pygame`. Cependant [le rendu SDL officiel de Pyodide](https://pyodide.org/en/stable/usage/sdl.html) est expérimental, exige un `HTMLCanvasElement` DOM avec `id="canvas"` et `pyodide.canvas.setCanvas2D`, ainsi qu’un flag interne de déroulement de pile. Le Worker actuel n’a ni `document` ni `HTMLCanvasElement`. L’API fournie accepte un canvas DOM, pas un pont Worker/OffscreenCanvas complet avec les événements clavier/souris. De plus, les boucles graphiques doivent céder la main via `asyncio.sleep`.
+
+Installer pygame-ce seul ne fournit donc pas de jeu utilisable dans cet IDE. `import pygame` affiche une explication dédiée. Aucun onglet Aperçu, canvas factice ou bouton plein écran n’est ajouté. Supporter un vrai jeu nécessiterait une architecture SDL/événements supplémentaire ou déplacer le runtime sur le thread DOM, ce qui compromettrait l’isolation actuelle et `input()` bloquant. Ce changement est reporté conformément au repli demandé. Matplotlib et d’autres packages peuvent être importables sans disposer d’un rendu graphique intégré.
+
+Références : [chargement officiel Pyodide](https://pyodide.org/en/stable/usage/loading-packages.html), [micropip](https://micropip.pyodide.org/en/stable/).
+
 ## Limites utiles en NSI
 
 - Python **3.14** via Pyodide, dans le navigateur. Quelques différences avec la version installée au lycée sont possibles.
 - Bibliothèque standard courante (`math`, `random`, `statistics`, collections, récursivité, fichiers virtuels) ; ni terminal système, ni accès direct aux fichiers du PC, ni `tkinter`/GUI/turtle complexe.
 - Les fichiers créés en Python restent dans la mémoire du Worker et disparaissent au Reset, Stop ou rechargement. Seul le texte des documents est sauvegardé.
-- Les imports de paquets externes ne sont pas installés automatiquement. Pas de `pip` arbitraire ; la CSP et l’auto-hébergement limitent volontairement les ressources à cette V1.
+- Les imports externes compatibles sont préparés automatiquement selon les règles ci-dessus ; pas de `pip` arbitraire ni de rendu Pygame dans le Worker actuel.
 - Premier chargement d’environ 13 Mo de ressources brutes (plus petit selon compression réseau), puis cache navigateur. L’app déjà ouverte reste utilisable après une coupure ; pas de garantie de démarrage entièrement hors ligne, pas de service worker.
 - Stop et Reset effacent toutes les variables. Les exécutions normales et le REPL partagent leur espace de variables.
 - Code : 1 Mio maximum synchronisable par document ; saisie `input()` : 64 Kio UTF-8 ; sortie limitée à 1 Mio par exécution et historique console borné pour préserver l’interface.

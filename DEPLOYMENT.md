@@ -94,7 +94,7 @@ Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
 
-Ces headers permettent `SharedArrayBuffer` : le Worker attend avec `Atomics.wait`, l’interface reste disponible et transmet la réponse d’`input()`. Tous les fichiers Python sont servis depuis `/pyodide/`, sans CDN. La CSP autorise WebAssembly, les ressources locales et Supabase. N’active pas d’injection de scripts (Rocket Loader, analytics externes, etc.) sans adapter et retester cette configuration.
+Ces headers permettent `SharedArrayBuffer` : le Worker attend avec `Atomics.wait`, l’interface reste disponible et transmet la réponse d’`input()`. Le runtime et son catalogue sont servis depuis `/pyodide/`. Les wheels sont chargés à la demande depuis `https://cdn.jsdelivr.net/pyodide/v314.0.7/full/`. Le fallback Python pur autorisé utilise `https://pypi.org/simple/` et `https://files.pythonhosted.org/`. La CSP n’ouvre que ces sources de téléchargement, en plus de WebAssembly, des ressources locales et Supabase ; aucun script CDN n’est autorisé. Les requêtes CORS de téléchargement restent compatibles avec COEP. N’active pas d’injection de scripts (Rocket Loader, analytics externes, etc.) sans adapter et retester cette configuration.
 
 Pour vérifier : ouvre les outils de développement > **Network**, recharge, sélectionne le document HTML, consulte **Response Headers**. Les deux headers doivent avoir les valeurs ci-dessus. Dans la console développeur, `crossOriginIsolated` doit renvoyer `true`.
 

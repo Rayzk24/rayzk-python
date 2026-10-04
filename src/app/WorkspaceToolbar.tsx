@@ -10,6 +10,7 @@ const saveLabels = {
 };
 
 type Props = {
+  preparation: string;
   status?: SaveState;
   state: RuntimeState;
   hasDocument: boolean;
@@ -18,6 +19,7 @@ type Props = {
   onRun: () => void;
 };
 export function WorkspaceToolbar({
+  preparation,
   status,
   state,
   hasDocument,
@@ -39,6 +41,7 @@ export function WorkspaceToolbar({
         {status ? saveLabels[status] : "Chargement du brouillon…"}
       </span>
       <div className="run-actions">
+        {preparation && <span className="dependency-status" role="status" title={preparation}>{preparation}</span>}
         <button
           className="reset-button"
           onClick={onReset}

@@ -10,6 +10,7 @@ export type ConsoleChunk = {
   text: string;
 };
 export type RuntimeSnapshot = {
+  preparation: string;
   state: RuntimeState;
   chunks: ConsoleChunk[];
   more: boolean;
@@ -27,6 +28,7 @@ export class PythonRuntime {
   private input?: SharedArrayBuffer;
   private listeners = new Set<() => void>();
   private snapshot: RuntimeSnapshot = {
+    preparation: "",
     state: "loading",
     chunks: [],
     more: false,
@@ -66,7 +68,7 @@ export class PythonRuntime {
   }
   start = () => {
     this.worker?.terminate();
-    this.publish({ state: "loading", more: false, errorText: "" });
+    this.publish({ state: "loading", more: false, errorText: "", preparation: "" });
     if (
       typeof SharedArrayBuffer === "undefined" ||
       !globalThis.crossOriginIsolated
@@ -84,6 +86,9 @@ export class PythonRuntime {
     worker.onmessage = ({ data }) => {
       if (worker !== this.worker) return;
       switch (data.type) {
+        case "dependencies":
+          this.publish({ preparation: data.label });
+          break;
         case "ready":
           this.publish({ state: "ready", version: data.version });
           break;
@@ -96,17 +101,17 @@ export class PythonRuntime {
           this.publish({ state: "input" });
           break;
         case "done":
-          this.publish({ state: "ready", more: data.more });
+          this.publish({ state: "ready", more: data.more, preparation: "" });
           break;
         case "fatal":
           this.append({ stream: "stderr", text: `${data.message}\n` });
-          this.publish({ state: "error" });
+          this.publish({ state: "error", preparation: "" });
           break;
       }
     };
     worker.onerror = () => {
       if (worker === this.worker) {
-        this.publish({ state: "error" });
+        this.publish({ state: "error", preparation: "" });
         this.append({
           stream: "stderr",
           text: "Le Worker Python a échoué. Vérifie le réseau puis utilise Reset Python.\n",
